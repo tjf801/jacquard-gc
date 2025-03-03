@@ -52,8 +52,46 @@ removing the cost of reference counting.
 ### Passing data to a bunch of threads
 <!-- something with GcMut to initialize and demotion to Gc to share to threads -->
 
-### Simple linked list (without `unsafe` or refcounting)
-<!-- just use the test code -->
+### Simple concurrent linked list (without raw pointers or refcounting)
+```rs
+#![feature(arbitrary_self_types)]
+
+struct LinkedList<T: Send + Sync + 'static> {
+    data: T,
+    next: Option<Gc<Self>>
+}
+
+impl<T: Send + Sync> LinkedList<T> {
+    fn nil(data: T) -> Gc<Self> {
+        Gc::new(Self { data, next: None })
+    }
+    
+    fn cons(data: T, tail: Gc<LinkedList<T>>) -> Gc<Self> {
+        Gc::new(Self { data, next: Some(tail) })
+    }
+    
+    fn append(self: Gc<Self>, values: impl IntoIterator<Item=T>) -> Gc<Self> {
+        let iter = values.into_iter();
+        let mut current = self;
+        for value in iter {
+            current = Self::cons(value, current);
+        }
+        current
+    }
+    
+    fn fold<B, F: FnMut(B, &T) -> B>(self: Gc<Self>, init: B, mut func: F) -> B {
+        let mut accum = init;
+        let mut curr_node = self;
+        loop {
+            accum = func(accum, &curr_node.data);
+            match curr_node.next {
+                None => return accum,
+                Some(next) => curr_node = next
+            }
+        }
+    }
+}
+```
 
 ### \[idk something with tokio and async\]
 <!-- Gc<Mutex<T>> probably -->
