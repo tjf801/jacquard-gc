@@ -45,7 +45,9 @@ removing the cost of reference counting.
  - Collection phase is single threaded
    - maybe if a certain number of threads are waiting, one of them can wake up the collector thread, which then can like, enlist those other threads to help scan and mark?
    - or, just make the current GC thread parallel by spawning new threads if that can work, maybe idk
- - 
+ - BIG ONE: `Gc<T: !Sync>` is not `Send`, so you can't make graphs of datatypes where the type isn't `Sync`, even though it's perfectly sound.
+   - this could potentially be solved with a `GcSend` auto trait where `Gc<T>: GcSend` but that feels like overkill...
+   - like, having a GCed linked list of Cells should be fine, it should just mean that the whole type is `!Send`
 
 ## Examples
 
@@ -92,6 +94,9 @@ impl<T: Send + Sync> LinkedList<T> {
     }
 }
 ```
+
+### Graph Data Structures
+<!-- uhhh just realized that doing this generically requires `T: Sync` even though it really shouldnt-->
 
 ### \[idk something with tokio and async\]
 <!-- Gc<Mutex<T>> probably -->
